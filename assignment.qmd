@@ -1,0 +1,111 @@
+---
+title: "week 10 assignment"
+author: "Zhe Chen"
+format: html
+editor: visual
+---
+
+# Preparations
+
+## clone repo from GitHub
+
+`git clone https://github.com/zhechensoc/mptc_us_census.git`
+
+`cd mptc_us_census`
+
+## Get Census API
+
+API: `401b3a66b94f9f0f10c0d1cad2a9eee2d88fa1a1`
+
+## packages
+
+```{r}
+library(tidycensus)
+library(sf)
+library(tidyverse)
+library(here)
+```
+
+# Guidance
+
+> Choose some Census geography smaller than a state—counties, tracts, or ZTCAs, for example. Find a Census variable—just one is fine—that you are interested in for those areas, either from the Decennial census or the ACS 5-year estimates. Download the data using `tidycensus::get_acs()` or `tidycensus::get_decennial()`. Try to make a couple of tables, graphs, or maps that illustrate something interesting about the variable you chose. Do all of this as an RStudio project with a Quarto document, use Git to version-control the project and put the resulting exercise (the `qmd` file, not an HTML or PDF) on GitHub.
+
+# Health Coverage Rate in Durham County, NC
+
+## searching for variables in ACS
+
+```{r}
+vlist <- load_variables(2023, "acs5")
+view(vlist)
+```
+
+`B27001_001` total health insurance coverage count
+
+`B05003_001` total population
+
+## get data
+
+```{r}
+durham <- get_acs(
+  state = "NC",
+  county = "Durham",
+  geography = "tract",
+  variables = c(health_insurance = "B27001_001",
+                population = "B05003_001"),
+  geometry = TRUE,
+  year = 2023
+)
+
+head(durham)
+```
+
+## table 
+
+```{r}
+insurance <- durham |>
+  pivot_wider(names_from = variable, values_from = c(estimate, moe)) |>
+  relocate(geometry, .after = moe_health_insurance) |>
+  mutate(health_insurance_rate = estimate_health_insurance / estimate_population,
+         health_insurance_rate = 100 * health_insurance_rate) |>
+  relocate(health_insurance_rate, .after = NAME)
+
+view(insurance)
+```
+
+## graph
+
+```{r}
+plot1 <- insurance |>
+  ggplot(aes(x = health_insurance_rate, y = reorder(GEOID, health_insurance_rate))) +
+  geom_col(fill = "navy") +
+  labs(title = "Health insurance coverage by trace in Durham County, NC",
+       subtitle = "2023 American Community Survey",
+       y = "GEOID",
+       x = "Health insurance coverage (%)")
+
+ggsave(
+  filename = here("figures", "plot1.png"),
+  plot = plot1,
+  width = 16,
+  height = 9,
+  dpi = 300)
+```
+
+## map 
+
+```{r}
+plot2 <- insurance |>
+  ggplot(aes(fill = health_insurance_rate)) +
+  geom_sf(color = NA) +
+  scale_fill_viridis_c(option = "mako") + 
+  labs(title = "Health insurance coverage by trace in Durham County, NC",
+       subtitle = "2023 American Community Survey",
+       fill = "Health insurance coverage (%)")
+
+ggsave(
+  filename = here("figures", "plot2.png"),
+  plot = plot2,
+  width = 16,
+  height = 9,
+  dpi = 300)
+```

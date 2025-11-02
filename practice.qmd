@@ -1,0 +1,191 @@
+---
+title: "practice on census API"
+author: "Zhe Chen"
+format: html
+editor: visual
+---
+
+# Basic usage of tidycensus
+
+source: [`https://walker-data.com/tidycensus/articles/basic-usage.html`](https://walker-data.com/tidycensus/articles/basic-usage.html)
+
+```{r}
+library(tidycensus)
+library(tidyverse)
+census_api_key("401b3a66b94f9f0f10c0d1cad2a9eee2d88fa1a1")
+```
+
+median age by state in 2020
+
+```{r}
+age20 <- get_decennial(geography = "state",
+                       variables = "P13_001N",
+                       year = 2020,
+                       sumfile = "dhc")
+head(age20)
+```
+
+visualize it with `ggplot2`
+
+```{r}
+age20 |>
+  ggplot(aes(x = value, y = reorder(NAME, value))) +
+  geom_point()
+```
+
+search for variables `load_variables()`
+
+```{r}
+v17 <- load_variables(2017, "acs5")
+view(v17)
+```
+
+ACS data
+
+```{r}
+vt <- get_acs(geography = "county",
+              variables = c(medincome = "B19013_001"),
+              state = "VT",
+              year = 2021)
+
+vt
+```
+
+-   `moe`: default 90% confidence level
+
+```{r}
+vt |>
+  mutate(NAME = gsub(" County, Vermont", "", NAME)) |>
+  ggplot(aes(x = estimate, y = reorder(NAME, estimate))) +
+  geom_errorbar(aes(xmin = estimate - moe, xmax = estimate + moe)) +
+  geom_point(color = "red", size = 3) +
+  labs(title = "Household income by county in Vermont",
+       subtitle = "2017-2021 American Community Survey",
+       y = "",
+       X = "ACS estimate (bars represent margin of error")
+```
+
+# Spatial data in tidycensus
+
+source: [`https://walker-data.com/tidycensus/articles/spatial-data.html`](https://walker-data.com/tidycensus/articles/spatial-data.html)
+
+```{r}
+library(tidyverse)
+library(tidycensus)
+```
+
+2016-2020 ACS for Census tracts in Orange County, California:
+
+```{r}
+orange <- get_acs(
+  state = "CA",
+  county = "Orange",
+  geography = "tract",
+  variables = "B19013_001",
+  geometry = TRUE,
+  year = 2020
+)
+
+head(orange)
+```
+
+use `geom_sf` in `ggplot2`
+
+```{r}
+orange |>
+  ggplot(aes(fill = estimate)) +
+  geom_sf(color = NA) +
+  scale_fill_viridis_c(option = "magma")
+```
+
+## faceted mapping
+
+request data for non-Hispanic whites, non-Hispanic blacks, non-Hispanic Asians, and Hispanics by Census tract for the 2020 Census, using the PL-94171 summary file
+
+```{r}
+racevars <- c(White = "P2_005N",
+              Black = "P2_006N",
+              Asian = "P2_008N",
+              Hispanic = "P2_002N")
+harris <- get_decennial(
+  geography = "tract",
+  variables = racevars,
+  state = "TX",
+  county = "Harris County",
+  geometry = TRUE,
+  summary_var = "P2_001N",
+  year = 2020,
+  sumfile = "pl"
+)
+
+head(harris)
+```
+
+visualize in a faceted plot
+
+```{r}
+harris |>
+  mutate(percent = 100 * (value / summary_value)) |>
+  ggplot(aes(fill = percent)) +
+  facet_wrap(~variable) +
+  geom_sf(color = NA) +
+  theme_void() +
+  scale_fill_viridis_c() +
+  labs(fill = "% of population\n(2020 census")
+```
+
+## shoreline mapping
+
+median household income by Census tract in Manhattan (New York County)
+
+```{r}
+ny <- get_acs(geography = "tract", 
+              variables = "B19013_001", 
+              state = "NY", 
+              county = "New York", 
+              year = 2020, 
+              geometry = TRUE)
+
+ggplot(ny, aes(fill = estimate)) + 
+  geom_sf() + 
+  theme_void() + 
+  scale_fill_viridis_c(labels = scales::dollar)
+```
+
+# margins of error in the ACS
+
+source: [`https://walker-data.com/tidycensus/articles/margins-of-error.html`](https://walker-data.com/tidycensus/articles/margins-of-error.html)
+
+```{r}
+library(tidycensus)
+library(tidyverse)
+```
+
+aging populations in Ramsey County, Minnesota from the 2012-2016 ACS by Census tracts
+
+```{r}
+vars <- paste0("B01001_0", c(20:25, 44:49))
+
+ramsey <- get_acs(geography = "tract", 
+                  variables = vars, 
+                  state = "MN", 
+                  county = "Ramsey", 
+                  year = 2016)
+
+head(ramsey |> select(-NAME))
+```
+
+use `moe_sum` to calculate the margin of error around a derived estimate for Census tract population over age 65
+
+```{r}
+ramsey65 <- ramsey |>
+  group_by(GEOID) |>
+  summarize(sumest = sum(estimate), 
+            summoe = moe_sum(moe, estimate))
+
+head(ramsey65)
+```
+
+# other census bureau datasets
+
+source: [`https://walker-data.com/tidycensus/articles/other-datasets.html`](https://walker-data.com/tidycensus/articles/other-datasets.html)
