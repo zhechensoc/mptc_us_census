@@ -13,10 +13,6 @@ editor: visual
 
 `cd mptc_us_census`
 
-## Get Census API
-
-API: `401b3a66b94f9f0f10c0d1cad2a9eee2d88fa1a1`
-
 ## packages
 
 ```{r}
@@ -59,7 +55,7 @@ durham <- get_acs(
 head(durham)
 ```
 
-## table 
+## table
 
 ```{r}
 insurance <- durham |>
@@ -79,7 +75,7 @@ plot1 <- insurance |>
   ggplot(aes(x = health_insurance_rate, y = reorder(GEOID, health_insurance_rate))) +
   geom_col(fill = "navy") +
   labs(title = "Health insurance coverage by trace in Durham County, NC",
-       subtitle = "2023 American Community Survey",
+       subtitle = "2019-2023 American Community Survey",
        y = "GEOID",
        x = "Health insurance coverage (%)")
 
@@ -91,15 +87,23 @@ ggsave(
   dpi = 300)
 ```
 
-## map 
+## map
 
 ```{r}
+insurance |>
+  ggplot(aes(fill = health_insurance_rate)) +
+  geom_sf(color = NA) +
+  scale_fill_viridis_c(option = "mako") + 
+  labs(title = "Health insurance coverage by trace in Durham County, NC",
+       subtitle = "2019-2023 American Community Survey",
+       fill = "Health insurance coverage (%)")
+
 plot2 <- insurance |>
   ggplot(aes(fill = health_insurance_rate)) +
   geom_sf(color = NA) +
   scale_fill_viridis_c(option = "mako") + 
   labs(title = "Health insurance coverage by trace in Durham County, NC",
-       subtitle = "2023 American Community Survey",
+       subtitle = "2019-2023 American Community Survey",
        fill = "Health insurance coverage (%)")
 
 ggsave(
